@@ -1,0 +1,1 @@
+venv/bin/python mac-dictation.py -l en
