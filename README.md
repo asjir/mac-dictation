@@ -1,5 +1,5 @@
 # Multilingual Dictation App based on OpenAI Whisper
-Multilingual dictation app based on the powerful OpenAI Whisper ASR model(s) to provide accurate and efficient speech-to-text conversion in any application. The app runs in the background and is triggered through a keyboard shortcut. This app uses [Groq](https://groq.com). It allows users to set up their own keyboard combinations and choose from different Whisper models, and languages.
+Multilingual dictation app based on the powerful OpenAI Whisper ASR model(s) to provide accurate and efficient speech-to-text conversion in any application. The app runs in the background and is triggered through a keyboard shortcut. This app uses [Groq](https://groq.com). It allows users to set up their own keyboard combinations and choose from different languages.
 
 The script is adapted from [whisper-dictation](https://github.com/foges/whisper-dictation) *not* to use local models.
 
