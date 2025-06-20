@@ -30,9 +30,7 @@ class SpeechTranscriber:
             if language:
                 kwargs["language"] = language
 
-            print("Transcription started")
             transcription = self.model.audio.transcriptions.create(**kwargs)
-            print("Transcription finished")
 
             saved_clipboard = pyperclip.paste()
             try:
