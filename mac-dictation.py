@@ -1,14 +1,12 @@
 import argparse
 import time
 import threading
-import pyaudio
+import subprocess
 import rumps
 from pynput import keyboard
 from groq import Groq
 import platform
-import wave
 import tempfile
-import os
 import dotenv
 import pyperclip
 
@@ -61,45 +59,37 @@ class Recorder:
     def _record_impl(self, language):
         self.recording = True
 
-        # Audio recording parameters
-        CHUNK = 1024
-        FORMAT = pyaudio.paInt16
-        CHANNELS = 1
-        RATE = 16000
-
-        p = pyaudio.PyAudio()
-        stream = p.open(format=FORMAT,
-                        channels=CHANNELS,
-                        rate=RATE,
-                        frames_per_buffer=CHUNK,
-                        input=True)
-        frames = []
-
-        while self.recording:
-            data = stream.read(CHUNK)
-            frames.append(data)
-
-        stream.stop_stream()
-        stream.close()
-        p.terminate()
-
-        # Create a temporary file for the audio and do everything within the context
+        # Create a temporary file for the audio recording
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
             temp_file_path = temp_file.name
 
-            # Save the audio data to the temporary file
-            wf = wave.open(temp_file_path, 'wb')
-            wf.setnchannels(CHANNELS)
-            wf.setsampwidth(p.get_sample_size(FORMAT))
-            wf.setframerate(RATE)
-            wf.writeframes(b''.join(frames))
-            wf.close()
+            # Start sox recording process
+            process = subprocess.Popen([
+                "sox", "-d", temp_file_path,
+                "rate", "16000",  # Set sample rate to 16kHz for Whisper
+                "channels", "1"   # Mono audio
+            ])
+
+            try:
+                # Keep recording while self.recording is True
+                while self.recording:
+                    time.sleep(0.1)  # Check every 100ms
+
+                    # Check if process has terminated unexpectedly
+                    if process.poll() is not None:
+                        break
+
+            finally:
+                # Stop the recording process
+                if process.poll() is None:  # Process is still running
+                    process.terminate()
+                    process.wait()
 
             # Transcribe the audio file
             self.transcriber.transcribe(temp_file_path, language)
 
-        # File is automatically cleaned up when exiting the with block
-        os.unlink(temp_file_path)
+        print(f"Transcribing {temp_file_path}...")
+        # os.unlink(temp_file_path)
 
 
 class GlobalKeyListener:

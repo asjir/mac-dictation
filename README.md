@@ -4,10 +4,10 @@ Multilingual dictation app based on the powerful OpenAI Whisper ASR model(s) to 
 The script is adapted from [whisper-dictation](https://github.com/foges/whisper-dictation) *not* to use local models.
 
 ## Prerequisites
-The PortAudio library is required for this app to work. You can install it on macOS using the following command:
+The sox library is required for this app to work. You can install it on macOS using the following command:
 
 ```bash
-brew install portaudio
+brew install sox
 ```
 
 ## Permissions
