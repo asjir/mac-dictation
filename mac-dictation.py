@@ -7,6 +7,7 @@ from pynput import keyboard
 from groq import Groq
 import platform
 import tempfile
+import os
 import dotenv
 import pyperclip
 
@@ -29,67 +30,74 @@ class SpeechTranscriber:
                 kwargs["language"] = language
 
             transcription = self.model.audio.transcriptions.create(**kwargs)
+            print("Transcription: " + transcription.text)
 
             saved_clipboard = pyperclip.paste()
             try:
                 pyperclip.copy(transcription.text.lstrip())
-                time.sleep(0.05)
+                time.sleep(0.1)
 
                 with self.pykeyboard.pressed(keyboard.Key.cmd):
                     self.pykeyboard.press('v')
                     self.pykeyboard.release('v')
 
-                time.sleep(0.05)
+                time.sleep(0.1)
             finally:
                 pyperclip.copy(saved_clipboard)
 
 
 class Recorder:
     def __init__(self, transcriber: SpeechTranscriber):
-        self.recording = False
         self.transcriber = transcriber
+        self.process = None
+        self.temp_file_path = None
+        self.current_language = None
 
     def start(self, language=None):
-        thread = threading.Thread(target=self._record_impl, args=(language,))
-        thread.start()
-
-    def stop(self):
-        self.recording = False
-
-    def _record_impl(self, language):
-        self.recording = True
+        self.current_language = language
 
         # Create a temporary file for the audio recording
         with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
-            temp_file_path = temp_file.name
+            self.temp_file_path = temp_file.name
+            print(f"Created temp file: {self.temp_file_path}")
 
-            # Start sox recording process
-            process = subprocess.Popen([
-                "sox", "-d", temp_file_path,
-                "rate", "16000",  # Set sample rate to 16kHz for Whisper
-                "channels", "1"   # Mono audio
-            ])
+        # Start sox recording process - it runs independently
+        self.process = subprocess.Popen([
+            "sox", "-d", self.temp_file_path,
+            "rate", "16000",  # Set sample rate to 16kHz for Whisper
+            "channels", "1"   # Mono audio
+        ])
+        print(f"Started sox process: {self.process.pid}")
 
+    def stop(self):
+        # Terminate the sox process
+        if self.process and self.process.poll() is None:
+            print(f"Terminating sox process: {self.process.pid}")
+            self.process.terminate()
+            self.process.wait()
+
+        # Transcribe the recorded file
+        if self.temp_file_path and os.path.exists(self.temp_file_path):
+            file_size = os.path.getsize(self.temp_file_path)
+            print(f"File size: {file_size} bytes")
+            if file_size > 0:
+                self.transcriber.transcribe(
+                    self.temp_file_path, self.current_language)
+            self._cleanup_temp_file()
+        else:
+            print("Error: No audio file created")
+
+    def _cleanup_temp_file(self):
+        """Clean up the temporary audio file"""
+        if self.temp_file_path:
             try:
-                # Keep recording while self.recording is True
-                while self.recording:
-                    time.sleep(0.1)  # Check every 100ms
-
-                    # Check if process has terminated unexpectedly
-                    if process.poll() is not None:
-                        break
-
+                if os.path.exists(self.temp_file_path):
+                    os.unlink(self.temp_file_path)
+            except Exception as e:
+                print(
+                    f"Warning: Could not delete temp file {self.temp_file_path}: {e}")
             finally:
-                # Stop the recording process
-                if process.poll() is None:  # Process is still running
-                    process.terminate()
-                    process.wait()
-
-            # Transcribe the audio file
-            self.transcriber.transcribe(temp_file_path, language)
-
-        print(f"Transcribing {temp_file_path}...")
-        # os.unlink(temp_file_path)
+                self.temp_file_path = None
 
 
 class GlobalKeyListener:
